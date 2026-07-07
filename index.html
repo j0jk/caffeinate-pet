@@ -9,8 +9,8 @@
     --bg:        #140d04;
     --screen:    #1c1206;
     --amber:     #ffb23e;
-    --amber-dim: #a6701c;
-    --amber-lo:  #6e4a13;
+    --amber-dim: #d6a24a;
+    --amber-lo:  #9c7328;
     --amber-hi:  #ffd587;
     --danger:    #ff5d47;
     --glow:      rgba(255,178,62,0.14);
@@ -25,12 +25,13 @@
   body { display: flex; align-items: center; justify-content: center; padding: 20px; min-height: 100%; }
 
   .crt {
-    width: 100%; max-width: 620px;
+    width: 100%; max-width: 680px;
+    display: flex; flex-direction: column;
+    min-height: 560px; max-height: calc(100vh - 40px);
     background: radial-gradient(120% 80% at 50% 0%, #241708 0%, var(--screen) 55%, #100a03 100%);
     border: 1px solid var(--amber-lo); border-radius: 14px;
     padding: 18px 22px 14px; position: relative; overflow: hidden;
     box-shadow: 0 0 0 1px #000 inset, 0 0 60px var(--glow), 0 24px 60px rgba(0,0,0,0.6);
-    text-shadow: 0 0 6px var(--glow);
   }
   .crt::after {
     content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -56,34 +57,52 @@
     display: flex; justify-content: space-between; align-items: baseline;
     font-size: 12px; letter-spacing: 0.12em; color: var(--amber-dim); text-transform: uppercase;
   }
-  .titlebar b { color: var(--amber); font-weight: 600; }
+  .titlebar b { color: var(--amber); font-weight: 600; text-shadow: 0 0 8px var(--glow); }
   .subtitle {
     font-size: 10.5px; color: var(--amber-lo); letter-spacing: 0.03em; text-transform: none;
     margin: 3px 0 8px; border-bottom: 1px solid var(--amber-lo); padding-bottom: 8px;
   }
 
-  .stage { text-align: center; padding: 4px 0 2px; }
+  .hero { display: flex; gap: 24px; align-items: center; margin: 6px 0 2px; }
+  .hero-left { flex: 0 0 auto; width: 180px; display: flex; justify-content: center; }
+  .hero-right { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+  .stage { text-align: center; padding: 0; flex: none; }
   pre.pet {
-    margin: 0; display: inline-block; font-size: 20px; line-height: 1.05;
-    color: var(--amber-hi); text-shadow: 0 0 10px rgba(255,178,62,0.35);
+    margin: 0; display: inline-block; font-size: 16px; line-height: 1.12;
+    color: var(--amber-hi); text-shadow: 0 0 12px rgba(255,178,62,0.45);
     white-space: pre; text-align: left;
   }
-  pre.pet.jitter { animation: jit 0.11s infinite steps(2); }
-  pre.pet.jitter-hard { animation: jit 0.06s infinite steps(2); }
-  pre.pet.twitch { animation: twitch 2.6s infinite; }
-  pre.pet.shakes { animation: shake 0.09s infinite steps(2); }
-  pre.pet.sway { animation: sway 3.4s ease-in-out infinite; }
+  pre.pet.jitter { animation: jit 0.09s infinite steps(2); }
+  pre.pet.jitter-hard { animation: jith 0.05s infinite steps(2); }
+  pre.pet.twitch { animation: twitch 2.2s infinite; }
+  pre.pet.shakes { animation: shake 0.07s infinite steps(2); }
+  pre.pet.sway { animation: sway 2.6s ease-in-out infinite; }
+  pre.pet.breathe { animation: breathe 3.2s ease-in-out infinite; }
+  pre.pet.snore { animation: snore 4s ease-in-out infinite; }
   pre.pet.crashed { color: var(--amber-dim); opacity: 0.7; }
-  @keyframes jit { 0%{transform:translate(0,0);} 50%{transform:translate(0.6px,-0.6px);} 100%{transform:translate(-0.5px,0.4px);} }
-  @keyframes twitch { 0%,92%,100%{transform:translate(0,0);} 93%{transform:translate(2px,0);} 95%{transform:translate(-2px,0);} 97%{transform:translate(1px,0);} }
-  @keyframes shake { 0%{transform:translate(0.8px,0);} 50%{transform:translate(-0.8px,0.4px);} 100%{transform:translate(0.4px,-0.5px);} }
-  @keyframes sway { 0%,100%{transform:translate(0,0) rotate(0);} 50%{transform:translate(0,1px) rotate(-1deg);} }
+  @keyframes jit {
+    0%{transform:translate(0,0);} 25%{transform:translate(1.4px,-1px);}
+    50%{transform:translate(-1px,1.2px);} 75%{transform:translate(0.8px,0.6px);} 100%{transform:translate(-1.2px,-0.6px);}
+  }
+  @keyframes jith {
+    0%{transform:translate(0,0) rotate(0);} 20%{transform:translate(2.2px,-1.6px) rotate(0.6deg);}
+    40%{transform:translate(-2px,1.4px) rotate(-0.6deg);} 60%{transform:translate(1.6px,1.6px) rotate(0.4deg);}
+    80%{transform:translate(-1.8px,-1.2px) rotate(-0.5deg);} 100%{transform:translate(1.2px,-0.8px) rotate(0.3deg);}
+  }
+  @keyframes twitch { 0%,88%,100%{transform:translate(0,0);} 90%{transform:translate(3px,0);} 93%{transform:translate(-3px,0);} 96%{transform:translate(1.5px,0);} }
+  @keyframes shake { 0%{transform:translate(1.2px,0) rotate(0.3deg);} 50%{transform:translate(-1.2px,0.6px) rotate(-0.3deg);} 100%{transform:translate(0.6px,-0.7px) rotate(0.2deg);} }
+  @keyframes sway { 0%,100%{transform:translate(0,0) rotate(0);} 25%{transform:translate(0,1.5px) rotate(-1.4deg);} 75%{transform:translate(0,2px) rotate(1deg);} }
+  @keyframes breathe { 0%,100%{transform:scale(1) translateY(0);} 50%{transform:scale(1.035) translateY(-1.5px);} }
+  @keyframes snore { 0%,100%{transform:translate(0,0) rotate(-1deg);} 50%{transform:translate(0,2px) rotate(-1deg);} }
 
   .speech { min-height: 1.3em; margin: 6px 0 10px; font-size: 14px; color: var(--amber); font-style: italic; }
 
-  .gauge { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 15px; margin-bottom: 4px; }
+  .gauge { display: flex; align-items: center; justify-content: flex-start; gap: 12px; font-size: 15px; }
   .bar { letter-spacing: 1px; }
   .bar .fill { color: var(--amber); }
+  .bar.over .fill { animation: meterpulse 0.7s ease-in-out infinite; }
+  @keyframes meterpulse { 0%,100%{opacity:1; text-shadow:0 0 8px var(--glow);} 50%{opacity:0.7; text-shadow:0 0 16px var(--amber);} }
   .bar.low .fill { color: var(--danger); text-shadow: 0 0 10px rgba(255,93,71,0.5); }
   .bar .empty { color: var(--amber-lo); }
   .pct { width: 3.4em; text-align: right; }
@@ -91,17 +110,17 @@
   .statusword.crit { color: var(--danger); }
 
   .stats {
-    display: flex; justify-content: center; gap: 16px; font-size: 11px; color: var(--amber-lo);
-    letter-spacing: 0.05em; margin: 8px 0 8px; flex-wrap: wrap;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 5px; font-size: 12.5px; color: var(--amber-dim);
+    letter-spacing: 0.05em;
   }
-  .stats span b { color: var(--amber-dim); font-weight: 600; }
+  .stats span b { color: var(--amber-lo); font-weight: 600; display: inline-block; width: 4.6em; }
   .stats .disc { cursor: pointer; color: var(--amber-dim); }
   .stats .disc:hover { color: var(--amber-hi); }
 
   .divider { border: 0; border-top: 1px dashed var(--amber-lo); margin: 8px 0; opacity: 0.6; }
 
   .log {
-    font-size: 13px; line-height: 1.5; height: 170px; overflow-y: auto; padding-right: 6px;
+    font-size: 13.5px; line-height: 1.55; flex: 1 1 auto; min-height: 180px; overflow-y: auto; padding-right: 6px;
     scrollbar-width: thin; scrollbar-color: var(--amber-lo) transparent;
   }
   .log::-webkit-scrollbar { width: 6px; }
@@ -154,13 +173,20 @@
   @media (prefers-reduced-motion: reduce) {
     .flicker, .crt.glitch, pre.pet { animation: none !important; }
   }
+  @media (max-width: 560px) {
+    .hero { flex-direction: column; gap: 8px; align-items: center; }
+    .hero-left { width: 100%; }
+    .hero-right { align-items: center; }
+    .hero-right .gauge { justify-content: center; }
+    .hero-right .stats { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 6px 14px; }
+    .hero-right .stats span b { width: auto; }
+  }
   @media (max-width: 460px) {
     body { padding: 10px; }
     pre.pet { font-size: 15px; }
-    .crt { padding: 14px 13px 12px; }
+    .crt { padding: 14px 13px 12px; min-height: 0; }
     #input { font-size: 16px; }        /* >=16px stops iOS zoom-on-focus */
-    .log { height: 150px; }
-    .stats { gap: 10px; }
+    .log { min-height: 150px; }
     .subtitle { font-size: 10px; }
   }
 </style>
@@ -175,16 +201,19 @@
     </div>
     <div class="subtitle">a practice rig for caffeinate(8). the real one keeps your Mac awake. this one keeps you accountable.</div>
 
-    <div class="stage"><pre class="pet" id="pet"></pre></div>
+    <div class="hero">
+      <div class="hero-left"><div class="stage"><pre class="pet" id="pet"></pre></div></div>
+      <div class="hero-right">
+        <div class="gauge">
+          <span class="statusword" id="statusword">·····</span>
+          <span class="bar" id="bar"></span>
+          <span class="pct" id="pct">--%</span>
+        </div>
+        <div class="stats" id="stats"></div>
+      </div>
+    </div>
     <div class="speech" id="speech"></div>
 
-    <div class="gauge">
-      <span class="statusword" id="statusword">·····</span>
-      <span class="bar" id="bar"></span>
-      <span class="pct" id="pct">--%</span>
-    </div>
-
-    <div class="stats" id="stats"></div>
     <hr class="divider">
     <div class="log" id="log"></div>
 
@@ -302,10 +331,10 @@
 
   // ---- themes -------------------------------------------------------------
   var THEMES = {
-    amber:  {bg:"#140d04",screen:"#1c1206",p:"#ffb23e",dim:"#a6701c",lo:"#6e4a13",hi:"#ffd587",danger:"#ff5d47",glow:"rgba(255,178,62,0.14)"},
-    green:  {bg:"#04120a",screen:"#071a0f",p:"#3bff8f",dim:"#1f9c5a",lo:"#136b3c",hi:"#9dffc4",danger:"#ff6b5a",glow:"rgba(59,255,143,0.14)"},
-    ice:    {bg:"#04101a",screen:"#071826",p:"#46c8ff",dim:"#2483ad",lo:"#155a78",hi:"#a9e6ff",danger:"#ff6b6b",glow:"rgba(70,200,255,0.14)"},
-    plasma: {bg:"#160419",screen:"#210827",p:"#ff5cc8",dim:"#b03a8f",lo:"#6e2258",hi:"#ffb3e6",danger:"#ff7a45",glow:"rgba(255,92,200,0.16)"}
+    amber:  {bg:"#140d04",screen:"#1c1206",p:"#ffb23e",dim:"#d6a24a",lo:"#9c7328",hi:"#ffd587",danger:"#ff5d47",glow:"rgba(255,178,62,0.14)"},
+    green:  {bg:"#04120a",screen:"#071a0f",p:"#3bff8f",dim:"#4fca86",lo:"#2b8a55",hi:"#9dffc4",danger:"#ff6b5a",glow:"rgba(59,255,143,0.14)"},
+    ice:    {bg:"#04101a",screen:"#071826",p:"#46c8ff",dim:"#5aa8cf",lo:"#357ea0",hi:"#a9e6ff",danger:"#ff6b6b",glow:"rgba(70,200,255,0.14)"},
+    plasma: {bg:"#160419",screen:"#210827",p:"#ff5cc8",dim:"#d873b0",lo:"#9c4a80",hi:"#ffb3e6",danger:"#ff7a45",glow:"rgba(255,92,200,0.16)"}
   };
   var THEME_NAMES = ["amber","green","ice","plasma"];
   var THEME_LINE = {
@@ -471,8 +500,9 @@
       if (S.overdoses >= 6) $pet.classList.add("shakes");
       else if (b === "OVERCLOCKED") $pet.classList.add("jitter-hard");
       else if (b === "WIRED") $pet.classList.add("jitter");
-      else if (b === "ASLEEP") $pet.classList.add("crashed");
+      else if (b === "ASLEEP") { $pet.classList.add("crashed"); $pet.classList.add("snore"); }
       else if (b === "TIRED" || b === "FUMES" || b === "CRITICAL") $pet.classList.add("sway");
+      else if (b === "FINE") $pet.classList.add("breathe");
       if (S.overdoses >= 3 && S.overdoses < 6 && b !== "ASLEEP") $pet.classList.add("twitch");
     } else $pet.classList.add("crashed");
 
@@ -481,7 +511,7 @@
     for (var i=0;i<filled;i++) f += "\u2588";
     for (var j=0;j<cells-filled;j++) e += "\u2591";
     var low = c > 0 && c < 25;
-    $bar.className = "bar" + (low ? " low":"");
+    $bar.className = "bar" + (low ? " low":"") + (over ? " over":"");
     $bar.innerHTML = "[<span class='fill'>"+f+"</span><span class='empty'>"+e+"</span>]" + (over?" <span class='fill'>++</span>":"");
     $pct.textContent = Math.round(c) + "%";
     $statusword.textContent = S.dead ? (S.deathReason==="burnout"?"BURNED OUT":"TERMINATED") : b;
