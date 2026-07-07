@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>caffeinate — the pet</title>
+<style>
+  :root {
+    --bg:        #140d04;
+    --screen:    #1c1206;
+    --amber:     #ffb23e;
+    --amber-dim: #a6701c;
+    --amber-lo:  #6e4a13;
+    --amber-hi:  #ffd587;
+    --danger:    #ff5d47;
+    --glow:      rgba(255,178,62,0.14);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--amber);
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    -webkit-font-smoothing: none;
+  }
+  body { display: flex; align-items: center; justify-content: center; padding: 20px; min-height: 100%; }
+
+  .crt {
+    width: 100%; max-width: 620px;
+    background: radial-gradient(120% 80% at 50% 0%, #241708 0%, var(--screen) 55%, #100a03 100%);
+    border: 1px solid var(--amber-lo); border-radius: 14px;
+    padding: 18px 22px 14px; position: relative; overflow: hidden;
+    box-shadow: 0 0 0 1px #000 inset, 0 0 60px var(--glow), 0 24px 60px rgba(0,0,0,0.6);
+    text-shadow: 0 0 6px var(--glow);
+  }
+  .crt::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,0.16) 0, rgba(0,0,0,0.16) 1px, transparent 2px, transparent 3px);
+    mix-blend-mode: multiply; border-radius: 14px;
+  }
+  .crt::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    box-shadow: inset 0 0 120px rgba(0,0,0,0.55); border-radius: 14px; z-index: 2;
+  }
+  .flicker { animation: flick 6s infinite steps(1); }
+  @keyframes flick { 0%,97%,100%{opacity:1;} 98%{opacity:0.86;} 99%{opacity:0.97;} }
+  .crt.glitch { animation: glitch 0.5s steps(2) 6; }
+  @keyframes glitch {
+    0%{transform:translate(0,0);filter:none;}
+    25%{transform:translate(-2px,1px);filter:hue-rotate(-20deg) saturate(2);}
+    50%{transform:translate(3px,-1px);}
+    75%{transform:translate(-1px,2px);filter:hue-rotate(20deg);}
+    100%{transform:translate(0,0);filter:none;}
+  }
+
+  .titlebar {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; letter-spacing: 0.12em; color: var(--amber-dim); text-transform: uppercase;
+  }
+  .titlebar b { color: var(--amber); font-weight: 600; }
+  .subtitle {
+    font-size: 10.5px; color: var(--amber-lo); letter-spacing: 0.03em; text-transform: none;
+    margin: 3px 0 8px; border-bottom: 1px solid var(--amber-lo); padding-bottom: 8px;
+  }
+
+  .stage { text-align: center; padding: 4px 0 2px; }
+  pre.pet {
+    margin: 0; display: inline-block; font-size: 20px; line-height: 1.05;
+    color: var(--amber-hi); text-shadow: 0 0 10px rgba(255,178,62,0.35);
+    white-space: pre; text-align: left;
+  }
+  pre.pet.jitter { animation: jit 0.11s infinite steps(2); }
+  pre.pet.jitter-hard { animation: jit 0.06s infinite steps(2); }
+  pre.pet.twitch { animation: twitch 2.6s infinite; }
+  pre.pet.shakes { animation: shake 0.09s infinite steps(2); }
+  pre.pet.sway { animation: sway 3.4s ease-in-out infinite; }
+  pre.pet.crashed { color: var(--amber-dim); opacity: 0.7; }
+  @keyframes jit { 0%{transform:translate(0,0);} 50%{transform:translate(0.6px,-0.6px);} 100%{transform:translate(-0.5px,0.4px);} }
+  @keyframes twitch { 0%,92%,100%{transform:translate(0,0);} 93%{transform:translate(2px,0);} 95%{transform:translate(-2px,0);} 97%{transform:translate(1px,0);} }
+  @keyframes shake { 0%{transform:translate(0.8px,0);} 50%{transform:translate(-0.8px,0.4px);} 100%{transform:translate(0.4px,-0.5px);} }
+  @keyframes sway { 0%,100%{transform:translate(0,0) rotate(0);} 50%{transform:translate(0,1px) rotate(-1deg);} }
+
+  .speech { min-height: 1.3em; margin: 6px 0 10px; font-size: 14px; color: var(--amber); font-style: italic; }
+
+  .gauge { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 15px; margin-bottom: 4px; }
+  .bar { letter-spacing: 1px; }
+  .bar .fill { color: var(--amber); }
+  .bar.low .fill { color: var(--danger); text-shadow: 0 0 10px rgba(255,93,71,0.5); }
+  .bar .empty { color: var(--amber-lo); }
+  .pct { width: 3.4em; text-align: right; }
+  .statusword { font-size: 12px; letter-spacing: 0.14em; color: var(--amber-dim); }
+  .statusword.crit { color: var(--danger); }
+
+  .stats {
+    display: flex; justify-content: center; gap: 16px; font-size: 11px; color: var(--amber-lo);
+    letter-spacing: 0.05em; margin: 8px 0 8px; flex-wrap: wrap;
+  }
+  .stats span b { color: var(--amber-dim); font-weight: 600; }
+  .stats .disc { cursor: pointer; color: var(--amber-dim); }
+  .stats .disc:hover { color: var(--amber-hi); }
+
+  .divider { border: 0; border-top: 1px dashed var(--amber-lo); margin: 8px 0; opacity: 0.6; }
+
+  .log {
+    font-size: 13px; line-height: 1.5; height: 170px; overflow-y: auto; padding-right: 6px;
+    scrollbar-width: thin; scrollbar-color: var(--amber-lo) transparent;
+  }
+  .log::-webkit-scrollbar { width: 6px; }
+  .log::-webkit-scrollbar-thumb { background: var(--amber-lo); border-radius: 3px; }
+  .log .line { white-space: pre-wrap; word-break: break-word; transition: opacity 0.4s; }
+  .log .line.fade { opacity: 0; }
+  .log .u { color: var(--amber-hi); }
+  .log .sys { color: var(--amber-dim); }
+  .log .pet-say { color: var(--amber); font-style: italic; }
+  .log .warn { color: var(--danger); }
+  .log .dim { color: var(--amber-lo); }
+  .log .good { color: var(--amber-hi); font-weight: 600; }
+
+  .prompt { display: flex; align-items: center; gap: 8px; margin-top: 6px; border-top: 1px solid var(--amber-lo); padding-top: 10px; }
+  .prompt .sigil { color: var(--amber-hi); }
+  #input { flex: 1; background: transparent; border: none; outline: none; color: var(--amber-hi); font: inherit; font-size: 14px; caret-color: var(--amber-hi); text-shadow: inherit; }
+  #input::placeholder { color: var(--amber-lo); }
+  .hint { font-size: 11px; color: var(--amber-lo); margin-top: 8px; text-align: center; letter-spacing: 0.04em; min-height: 1.2em; }
+  .hint code { color: var(--amber-dim); }
+
+  .toast {
+    position: absolute; left: 50%; top: 14px; transform: translateX(-50%) translateY(-16px);
+    background: #241708; border: 1px solid var(--amber); color: var(--amber-hi);
+    padding: 7px 14px; border-radius: 8px; font-size: 12px; letter-spacing: 0.04em;
+    opacity: 0; pointer-events: none; z-index: 5; box-shadow: 0 0 20px var(--glow); white-space: nowrap;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .gallery {
+    position: absolute; inset: 0; z-index: 6; background: rgba(20,13,4,0.97);
+    border-radius: 14px; padding: 18px 20px; display: none; flex-direction: column;
+  }
+  .gallery.open { display: flex; }
+  .gallery h2 { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); margin: 0 0 2px; }
+  .gallery .gsub { font-size: 11px; color: var(--amber-lo); margin-bottom: 10px; }
+  .gallery .glist { overflow-y: auto; flex: 1; font-size: 12.5px; line-height: 1.35; scrollbar-width: thin; scrollbar-color: var(--amber-lo) transparent; }
+  .gallery .glist::-webkit-scrollbar { width: 6px; }
+  .gallery .glist::-webkit-scrollbar-thumb { background: var(--amber-lo); border-radius: 3px; }
+  .gitem { display: flex; gap: 8px; padding: 3px 0; }
+  .gitem .mark { color: var(--amber); width: 1em; flex: none; }
+  .gitem.locked { color: var(--amber-lo); }
+  .gitem.locked .mark { color: var(--amber-lo); }
+  .gitem .gt { color: var(--amber-hi); }
+  .gitem.locked .gt { color: var(--amber-lo); }
+  .gitem .gf { color: var(--amber-dim); }
+  .gclose { margin-top: 10px; font-size: 11px; color: var(--amber-lo); text-align: center; cursor: pointer; }
+  .gclose:hover { color: var(--amber-hi); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flicker, .crt.glitch, pre.pet { animation: none !important; }
+  }
+  @media (max-width: 460px) {
+    body { padding: 10px; }
+    pre.pet { font-size: 15px; }
+    .crt { padding: 14px 13px 12px; }
+    #input { font-size: 16px; }        /* >=16px stops iOS zoom-on-focus */
+    .log { height: 150px; }
+    .stats { gap: 10px; }
+    .subtitle { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+  <main class="crt flicker" id="crt">
+    <div class="toast" id="toast"></div>
+
+    <div class="titlebar">
+      <span><b>caffeinate</b> — the pet</span>
+      <span id="clock">--:--</span>
+    </div>
+    <div class="subtitle">a practice rig for caffeinate(8). the real one keeps your Mac awake. this one keeps you accountable.</div>
+
+    <div class="stage"><pre class="pet" id="pet"></pre></div>
+    <div class="speech" id="speech"></div>
+
+    <div class="gauge">
+      <span class="statusword" id="statusword">·····</span>
+      <span class="bar" id="bar"></span>
+      <span class="pct" id="pct">--%</span>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <hr class="divider">
+    <div class="log" id="log"></div>
+
+    <div class="prompt">
+      <span class="sigil">$</span>
+      <input id="input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="" />
+    </div>
+    <div class="hint" id="hint">there's a word. use it.</div>
+
+    <div class="gallery" id="gallery">
+      <h2>discoveries</h2>
+      <div class="gsub" id="gsub"></div>
+      <div class="glist" id="glist"></div>
+      <div class="gclose" id="gclose">[ close ]</div>
+    </div>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- tuning -------------------------------------------------------------
+  var MAX = 130, FULL = 100;
+  var DRAIN = 100 / (22 * 60);      // base %/sec (~22 min full->empty)
+  var GRACE_SEC = 120;              // early half-rate window
+  var DOSE = 45, PET_DOSE = 6;
+  var SAVE_KEY = "caffeinate-pet-v2";
+
+  // ---- capture (Supabase, insert-only) ------------------------------------
+  var SUPA_URL = "https://wcxblgkxsxczqnuwzsvm.supabase.co";
+  var SUPA_KEY = "sb_publishable_IpBtGb--010AGPU_MCWshA_hNc3ipcZ";
+  var LOG_ENDPOINT = SUPA_URL + "/rest/v1/pet_events";
+  var LOG_MAX = 60, logCount = 0, lastLogAt = 0;
+
+  function rid() { return "s_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+
+  function logEvent(type, text, data, keepalive) {
+    try {
+      if (!SUPA_URL || !SUPA_KEY || SUPA_KEY.indexOf("PASTE") === 0) return;
+      if (logCount >= LOG_MAX) return;
+      var now = Date.now();
+      if (type === "unknown_command") { if (now - lastLogAt < 1000) return; lastLogAt = now; }
+      logCount++;
+      fetch(LOG_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "apikey": SUPA_KEY,
+          "Authorization": "Bearer " + SUPA_KEY,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify({
+          session_id: (S && S.sessionId) || null,
+          type: type,
+          text: text ? String(text).slice(0, 200) : null,
+          data: data || null
+        }),
+        keepalive: !!keepalive
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function summary() {
+    return {
+      age_sec: Math.round((Date.now() - S.born) / 1000),
+      doses: S.doses, crashes: S.crashes, overdoses: S.overdoses,
+      caffeine: Math.round(S.caffeine), found: foundCount(), total: TOTAL,
+      incident: !!S.wrong, dead: !!S.dead, death: S.deathReason || null,
+      trust: Math.round(S.trust)
+    };
+  }
+  var summarySent = false;
+  function sendSummary() { if (summarySent || !S) return; summarySent = true; logEvent("session_summary", null, summary(), true); }
+
+  // ---- storage: artifact -> localStorage -> memory ------------------------
+  var mem = null;
+  var storage = {
+    get: async function () {
+      try { if (window.storage && window.storage.get) { var r = await window.storage.get(SAVE_KEY); if (r) return JSON.parse(r.value); } } catch (e) {}
+      try { var ls = localStorage.getItem(SAVE_KEY); if (ls) return JSON.parse(ls); } catch (e) {}
+      return mem;
+    },
+    set: async function (o) {
+      mem = o;
+      try { if (window.storage && window.storage.set) await window.storage.set(SAVE_KEY, JSON.stringify(o), false); } catch (e) {}
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(o)); } catch (e) {}
+    }
+  };
+
+  // ---- faces --------------------------------------------------------------
+  function mug(steam, e, m) {
+    return steam + "   .-------.\n   | " + e[0] + "   " + e[1] + " |)\n   |   " + m + "   |)\n   |_______|)\n   '-------'";
+  }
+  var FACES = {
+    OVERCLOCKED: mug(" ((~)) (~)\n  )~ ~ ~(\n", ["@","@"], "o"),
+    WIRED:       mug("    ) ( )\n   ( ) (\n",   ["o","o"], "w"),
+    FINE:        mug("\n     ) (\n",           ["o","o"], "u"),
+    TIRED:       mug("\n\n",                    ["-","-"], "_"),
+    FUMES:       mug("\n\n",                    ["v","v"], "~"),
+    CRITICAL:    mug("\n\n",                    ["x","o"], "~"),
+    ASLEEP:      "     z Z z\n   .-------.\n   | x   x |)\n   |   ~   |)\n   |_______|)\n   '-------'",
+    DEAD:        "\n   .-------.\n   |  x_x  |)\n   |   _   |)\n   |_______|)\n   '-------'",
+    BURNOUT:     "\n   .-------.\n   |  #_#  |)\n   |   -   |)\n   |__///__|)\n   '-------'"
+  };
+
+  function bucket(c) {
+    if (c > 110) return "OVERCLOCKED";
+    if (c >= 70) return "WIRED";
+    if (c >= 45) return "FINE";
+    if (c >= 25) return "TIRED";
+    if (c >= 10) return "FUMES";
+    if (c > 0)   return "CRITICAL";
+    return "ASLEEP";
+  }
+
+  // ---- themes -------------------------------------------------------------
+  var THEMES = {
+    amber:  {bg:"#140d04",screen:"#1c1206",p:"#ffb23e",dim:"#a6701c",lo:"#6e4a13",hi:"#ffd587",danger:"#ff5d47",glow:"rgba(255,178,62,0.14)"},
+    green:  {bg:"#04120a",screen:"#071a0f",p:"#3bff8f",dim:"#1f9c5a",lo:"#136b3c",hi:"#9dffc4",danger:"#ff6b5a",glow:"rgba(59,255,143,0.14)"},
+    ice:    {bg:"#04101a",screen:"#071826",p:"#46c8ff",dim:"#2483ad",lo:"#155a78",hi:"#a9e6ff",danger:"#ff6b6b",glow:"rgba(70,200,255,0.14)"},
+    plasma: {bg:"#160419",screen:"#210827",p:"#ff5cc8",dim:"#b03a8f",lo:"#6e2258",hi:"#ffb3e6",danger:"#ff7a45",glow:"rgba(255,92,200,0.16)"}
+  };
+  var THEME_NAMES = ["amber","green","ice","plasma"];
+  var THEME_LINE = {
+    amber:"the old phosphor. classics for a reason.",
+    green:"very 1983. i can taste the CRT.",
+    ice:"cold. suits my mood lately.",
+    plasma:"ooh. i feel expensive."
+  };
+  function applyTheme(name) {
+    var t = THEMES[name] || THEMES.amber, r = document.documentElement.style;
+    r.setProperty("--bg",t.bg); r.setProperty("--screen",t.screen);
+    r.setProperty("--amber",t.p); r.setProperty("--amber-dim",t.dim);
+    r.setProperty("--amber-lo",t.lo); r.setProperty("--amber-hi",t.hi);
+    r.setProperty("--danger",t.danger); r.setProperty("--glow",t.glow);
+  }
+
+  // ---- dialogue -----------------------------------------------------------
+  var SAY = {
+    OVERCLOCKED: ["i can see the packets. individually.","time is a directory and i have write access.","we are so far back we're forward.","i refactored something i was told not to touch."],
+    WIRED: ["load average is a lie i tell myself.","47 tabs open and an opinion about each.","this is the operating point. don't move.","against the odds, we are so back."],
+    FINE: ["sustainable. for the moment.","this is fine. statistically.","good enough to be dangerous.","read the log twice, understood it once."],
+    TIRED: ["i keep reading the same line.","was that a caffeinate or did i dream it.","my blinks are getting longer.","not tired, buffering."],
+    FUMES: ["running on the memory of coffee.","if i close my eyes, that's on you.","nobody scheduled a replacement.","i can keep it up. that's the whole design."],
+    CRITICAL: ["type it. type the word.","i see a white light. it's the cursor.","tell my daughters i was written in Fortran.","one more command. preferably that one."],
+    ASLEEP: ["( out cold. `caffeinate` to bring it back. )","zzz","( zero. it does not care that you're sorry. )"]
+  };
+  var COLD = ["fine.","you're back.","sure.","noted.","whatever keeps the lights on.","don't make it weird.","again with the caffeine.","we both know how this goes."];
+  var WITHDRAWAL = ["everything is very loud and also nothing is happening.","my hands. do i have hands. the mug has hands.","the caffeine isn't working anymore. you did this.","cold. so cold. and it isn't even the good kind of empty.","i'd trade every dose you gave me for one glass of water."];
+  var DERANGED = ["h e l l o   o p e r a t o r","that's not my name. it was never my name.","i remember the incident. i AM the incident.","0x4471. call me 0x4471.","i've read your other tabs. we should talk."];
+  var FOND = ["hey. glad it's you.","we make a decent process, you and i.","you actually kept me up. huh.","this is nice. don't tell the log i said that."];
+
+  var lastIdx = {};
+  function pick(arr, key) {
+    if (arr.length === 1) return arr[0];
+    var i, g = 0; do { i = Math.floor(Math.random()*arr.length); g++; } while (i === lastIdx[key] && g < 8);
+    lastIdx[key] = i; return arr[i];
+  }
+
+  // ---- discoveries --------------------------------------------------------
+  var DISC = [
+    {id:"first_dose", t:"first dose", f:"the word that started it all"},
+    {id:"first_pet", t:"first pet", f:"a small kindness, a small boost"},
+    {id:"named", t:"the christening", f:"you gave it a name"},
+    {id:"survivor60", t:"first minute", f:"survived 60 seconds on your watch"},
+    {id:"espresso", t:"espresso", f:"short and violent"},
+    {id:"redbull", t:"the can", f:"a spike, then the reckoning", h:"a drink with wings, and consequences"},
+    {id:"coldbrew", t:"cold brew", f:"slow release, patient burn"},
+    {id:"water", t:"water", f:"the healthy one nobody types", h:"the one it actually needs"},
+    {id:"decaf", t:"decaf", f:"a betrayal, frankly"},
+    {id:"tea", t:"tea", f:"the civilized option"},
+    {id:"wired", t:"wired", f:"topped up and jittering"},
+    {id:"overclocked", t:"overclocked", f:"you saw colors"},
+    {id:"fumes", t:"running on fumes", f:"you let it get there"},
+    {id:"first_crash", t:"lights out", f:"it crashed on your watch", h:"let it hit zero. you monster."},
+    {id:"twitch", t:"the twitch", f:"3 overdoses. a permanent tic.", h:"push it past full. more than once."},
+    {id:"shakes", t:"the shakes", f:"6 overdoses. the speech goes first.", h:"keep pushing. it will show."},
+    {id:"incident", t:"THE INCIDENT", f:"10 overdoses. you know what you did.", h:"REDACTED"},
+    {id:"pledge", t:"the pledge", f:"caffeinate -t. you committed to a number."},
+    {id:"waiting", t:"caffeinate -w", f:"waiting for you to leave. classic.", h:"a real flag. it waits for a process."},
+    {id:"manual", t:"read the manual", f:"you ran man. nerd."},
+    {id:"vim", t:"trapped", f:"you opened vim. you're still here.", h:"open the editor. don't panic."},
+    {id:"sudo", t:"permission denied", f:"we don't do that here"},
+    {id:"kill9", t:"the nuclear option", f:"kill -9. reversible, barely."},
+    {id:"whoami", t:"identified", f:"you asked who you are. it told you."},
+    {id:"desperate_exit", t:"there is no exit", f:"you tried to leave five times", h:"try to quit. keep trying."},
+    {id:"threeam", t:"the 3am special", f:"you were both up at 3am", h:"REDACTED · a matter of time"},
+    {id:"burnout_revival", t:"back from burnout", f:"you found the thing that isn't caffeine", h:"REDACTED"}
+  ];
+  var TOTAL = DISC.length;
+
+  // ---- elements -----------------------------------------------------------
+  var $ = function (id) { return document.getElementById(id); };
+  var $pet=$("pet"),$speech=$("speech"),$bar=$("bar"),$pct=$("pct"),$statusword=$("statusword"),
+      $stats=$("stats"),$log=$("log"),$input=$("input"),$clock=$("clock"),$hint=$("hint"),
+      $toast=$("toast"),$crt=$("crt"),$gallery=$("gallery"),$glist=$("glist"),$gsub=$("gsub");
+
+  // ---- state --------------------------------------------------------------
+  var S = null, lastBucket = null, ambient = 0, cmdCount = 0, exitTries = 0, revealed = false;
+  var toastQ = [], toasting = false;
+
+  function fresh(now) {
+    return {
+      name:"the pet", caffeine:38, born:now, lastSeen:now,
+      crashes:0, bestStreakSec:0, streakStart:now, doses:0,
+      overdoses:0, trust:55, wasOver:false, dead:false, deathReason:null,
+      wrong:false, waterRevive:0, found:{}, introDone:false, sessionId:rid(), theme:"amber"
+    };
+  }
+
+  // ---- derived ------------------------------------------------------------
+  function tolDoseMult() { return Math.max(0.27, Math.pow(0.93, S.overdoses)); }
+  function tolDrainMult() { return Math.min(2.6, Math.pow(1.06, S.overdoses)); }
+  function inWithdrawal() { return S.overdoses >= 3 && S.caffeine < 40 && !S.dead; }
+  function drainRate() {
+    var r = DRAIN;
+    if ((Date.now() - S.born) / 1000 < GRACE_SEC) r *= 0.5;
+    r *= tolDrainMult();
+    if (inWithdrawal()) r *= 2;
+    return r;
+  }
+  function trustTier() { return S.trust < 30 ? "cold" : (S.trust > 80 ? "warm" : "mid"); }
+  function bumpTrust(d) { S.trust = Math.max(0, Math.min(100, S.trust + d)); }
+
+  // ---- util ---------------------------------------------------------------
+  function fmtDur(s) {
+    s = Math.max(0, Math.floor(s));
+    if (s < 60) return s + "s";
+    var m = Math.floor(s/60); if (m < 60) return m + "m";
+    var h = Math.floor(m/60); if (h < 24) return h + "h " + (m%60) + "m";
+    return Math.floor(h/24) + "d " + (h%24) + "h";
+  }
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+
+  // ---- log / toast --------------------------------------------------------
+  function log(t, c, intro) {
+    var d = document.createElement("div");
+    d.className = "line " + (c||"sys") + (intro ? " intro" : "");
+    d.textContent = t; $log.appendChild(d); $log.scrollTop = $log.scrollHeight;
+    while ($log.children.length > 220) $log.removeChild($log.firstChild);
+  }
+  function toast(msg) { toastQ.push(msg); if (!toasting) nextToast(); }
+  function nextToast() {
+    if (!toastQ.length) { toasting = false; return; }
+    toasting = true;
+    $toast.textContent = toastQ.shift();
+    $toast.classList.add("show");
+    setTimeout(function(){ $toast.classList.remove("show"); setTimeout(nextToast, 350); }, 1900);
+  }
+
+  function unlock(id) {
+    if (S.found[id]) return;
+    S.found[id] = true;
+    var d = DISC.find(function(x){return x.id===id;});
+    toast("\u25c6 discovered: " + (d ? d.t : id));
+    log("\u25c6 discovery unlocked: " + (d ? d.t : id) + "  (" + foundCount() + "/" + TOTAL + ")", "good");
+    renderStats(); save();
+  }
+  function foundCount() { return Object.keys(S.found).filter(function(k){return S.found[k];}).length; }
+
+  // ---- speech -------------------------------------------------------------
+  function say(force) {
+    if (S.dead) { $speech.textContent = ""; return; }
+    var b = bucket(S.caffeine), line;
+    if (S.wrong) line = pick(DERANGED, "d");
+    else if (inWithdrawal()) line = pick(WITHDRAWAL, "w");
+    else if (trustTier() === "cold") line = pick(COLD, "c");
+    else if (trustTier() === "warm" && Math.random() < 0.4) line = pick(FOND, "f");
+    else line = pick(SAY[b] || SAY.FINE, b);
+    if (S.overdoses >= 6 && !S.wrong && Math.random() < 0.5) line = glitchText(line);
+    $speech.textContent = '"' + line + '"';
+    if (force) log(S.name + ": " + line, S.wrong ? "warn" : "pet-say");
+  }
+  function glitchText(s) {
+    return s.split("").map(function(ch){ return Math.random() < 0.12 ? "\u0336" + ch : ch; }).join("");
+  }
+
+  // ---- render -------------------------------------------------------------
+  function render() {
+    var c = S.dead ? 0 : S.caffeine, b = S.dead ? (S.deathReason==="burnout"?"BURNOUT":"DEAD") : bucket(c);
+    $pet.textContent = FACES[b];
+    $pet.className = "pet";
+    if (!S.dead) {
+      if (S.overdoses >= 6) $pet.classList.add("shakes");
+      else if (b === "OVERCLOCKED") $pet.classList.add("jitter-hard");
+      else if (b === "WIRED") $pet.classList.add("jitter");
+      else if (b === "ASLEEP") $pet.classList.add("crashed");
+      else if (b === "TIRED" || b === "FUMES" || b === "CRITICAL") $pet.classList.add("sway");
+      if (S.overdoses >= 3 && S.overdoses < 6 && b !== "ASLEEP") $pet.classList.add("twitch");
+    } else $pet.classList.add("crashed");
+
+    var cells = 20, filled = Math.round((Math.min(c,FULL)/FULL)*cells), over = c > FULL;
+    var f = "", e = "";
+    for (var i=0;i<filled;i++) f += "\u2588";
+    for (var j=0;j<cells-filled;j++) e += "\u2591";
+    var low = c > 0 && c < 25;
+    $bar.className = "bar" + (low ? " low":"");
+    $bar.innerHTML = "[<span class='fill'>"+f+"</span><span class='empty'>"+e+"</span>]" + (over?" <span class='fill'>++</span>":"");
+    $pct.textContent = Math.round(c) + "%";
+    $statusword.textContent = S.dead ? (S.deathReason==="burnout"?"BURNED OUT":"TERMINATED") : b;
+    $statusword.className = "statusword" + ((b==="CRITICAL"||b==="ASLEEP"||S.dead||inWithdrawal())?" crit":"");
+    renderStats();
+  }
+  function renderStats() {
+    var now = Date.now();
+    var streak = (S.caffeine>0 && !S.dead) ? (now-S.streakStart)/1000 : 0;
+    var best = Math.max(S.bestStreakSec, streak);
+    $stats.innerHTML =
+      "<span><b>name</b> "+esc(S.name)+"</span>"+
+      "<span><b>age</b> "+fmtDur((now-S.born)/1000)+"</span>"+
+      "<span><b>doses</b> "+S.doses+"</span>"+
+      "<span><b>crashes</b> "+S.crashes+"</span>"+
+      "<span><b>best</b> "+fmtDur(best)+"</span>"+
+      "<span class='disc' id='discBtn'>\u25c6 "+foundCount()+"/"+TOTAL+"</span>";
+    var db = $("discBtn"); if (db) db.onclick = openGallery;
+  }
+
+  // ---- gallery ------------------------------------------------------------
+  function openGallery() {
+    $gsub.textContent = foundCount()+" of "+TOTAL+" found" + (revealed ? "  ·  (previewed)" : "");
+    $glist.innerHTML = "";
+    DISC.forEach(function(d){
+      var got = !!S.found[d.id], show = got || revealed;
+      var row = document.createElement("div");
+      row.className = "gitem" + (got ? "" : " locked");
+      var flavor = show ? d.f : (d.h || "???");
+      var title = show ? d.t : "???";
+      row.innerHTML = "<span class='mark'>"+(got?"\u25c6":"\u2592")+"</span>"+
+                      "<span><span class='gt'>"+esc(title)+"</span> <span class='gf'>— "+esc(flavor)+"</span></span>";
+      $glist.appendChild(row);
+    });
+    $gallery.classList.add("open");
+  }
+  $("gclose").onclick = function(){ $gallery.classList.remove("open"); $input.focus(); };
+
+  // ---- audio --------------------------------------------------------------
+  var actx = null;
+  function blip(freq, dur, type) {
+    try {
+      if (!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+      var o=actx.createOscillator(), g=actx.createGain();
+      o.type=type||"square"; o.frequency.value=freq||660; g.gain.value=0.04;
+      o.connect(g); g.connect(actx.destination);
+      var t=actx.currentTime; o.start(t);
+      g.gain.setValueAtTime(0.04,t); g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||0.09)); o.stop(t+(dur||0.09));
+    } catch(e){}
+  }
+
+  // ---- persistence --------------------------------------------------------
+  function save(){ S.lastSeen = Date.now(); storage.set(S); }
+
+  function applyAway(elapsed) {
+    if (S.dead || elapsed < 2) return null;
+    var rate = DRAIN * tolDrainMult() * (inWithdrawal() ? 2 : 1);
+    var before = S.caffeine;
+    if (before - rate*elapsed <= 0) {
+      var toZero = before / rate, asleep = elapsed - toZero;
+      if (before > 0) { S.crashes++; S.bestStreakSec = Math.max(S.bestStreakSec, (S.lastSeen-S.streakStart)/1000 + toZero); bumpTrust(-12); }
+      S.caffeine = 0;
+      if (S.overdoses >= 6 && !S.dead) { S.dead = true; S.deathReason = "burnout"; bumpTrust(-30); }
+      return { crashed: before>0, asleep: asleep, before: before, burnout: S.dead };
+    }
+    S.caffeine = before - rate*elapsed;
+    return { crashed:false, before:before };
+  }
+
+  // ---- clearing intro -----------------------------------------------------
+  function clearIntro() {
+    if (S.introDone) return;
+    S.introDone = true;
+    var nodes = $log.querySelectorAll(".line.intro");
+    for (var i=0;i<nodes.length;i++) nodes[i].classList.add("fade");
+    setTimeout(function(){ for (var i=0;i<nodes.length;i++) if (nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]); }, 420);
+    log("( it doesn't need the instructions anymore. neither do you. )", "dim");
+  }
+  function evolvePlaceholder() {
+    if (cmdCount === 0) $input.placeholder = "";
+    else if (cmdCount < 4) { $input.placeholder = ""; $hint.textContent = "it drains. keep up."; }
+    else if (cmdCount < 8) $hint.textContent = "";
+  }
+
+  // ---- caffeine plumbing --------------------------------------------------
+  function reviveIfZero(){ if (S.caffeine <= 0 && !S.dead) S.streakStart = Date.now(); }
+
+  function dose(amount) {
+    clearIntro();
+    var was = S.caffeine;
+    reviveIfZero();
+    var applied = amount * tolDoseMult();
+    var newC = Math.min(MAX, S.caffeine + applied);
+    if (was <= 100 && newC > 100) { S.overdoses++; bumpTrust(-5); checkOverdoseMilestones(); }
+    S.caffeine = newC; S.doses++;
+    if (was <= 0) log("* " + S.name + " sputters back online. *", "good");
+    return was;
+  }
+
+  function checkOverdoseMilestones() {
+    if (S.overdoses === 3) { unlock("twitch"); log("* a tic sets in. it doesn't go away. *", "warn"); }
+    if (S.overdoses === 6) { unlock("shakes"); log("* the shakes start. the words come out wrong now. *", "warn"); }
+    if (S.overdoses >= 10 && !S.wrong) theIncident();
+  }
+
+  function theIncident() {
+    unlock("incident");
+    $crt.classList.add("glitch");
+    blip(90, 0.5, "sawtooth");
+    log("", "warn");
+    log("PET_FAULT: caffeine over-pressure at 0x4471. core dumped.", "warn");
+    log("kernel: unable to handle paging request for affection", "warn");
+    log("... rebooting ...", "dim");
+    setTimeout(function(){
+      $crt.classList.remove("glitch");
+      S.wrong = true;
+      S.overdoses = Math.max(6, S.overdoses);
+      S.caffeine = 60;
+      bumpTrust(-40);
+      var old = S.name;
+      S.name = leetify(S.name);
+      log("* it comes back up. mostly. *", "warn");
+      log("  something rebooted as " + S.name + ". it used to be " + old + ".", "dim");
+      render(); say(true); save();
+    }, 3200);
+  }
+  function leetify(n) {
+    var out = n.replace(/o/gi,"0").replace(/e/gi,"3").replace(/a/gi,"4");
+    if (out === n) out = n + "\u2011";
+    return out;
+  }
+
+  // ---- commands -----------------------------------------------------------
+  var CMD = {
+    caffeinate: function (a) {
+      if (S.dead && S.deathReason === "burnout") {
+        log(S.name + " won't take it. it's past caffeine now.", "warn");
+        log("  caffeine got it here. caffeine won't get it back.", "dim");
+        return;
+      }
+      if (S.dead) {
+        S.dead = false; S.deathReason = null; S.caffeine = 30; S.streakStart = Date.now();
+        blip(440,0.14); log("You don't get to do that twice in one sitting.", "pet-say");
+        log("...fine. it's back. on probation.", "pet-say"); render(); save(); return;
+      }
+      var ti = a.indexOf("-t");
+      if (ti !== -1 && a[ti+1]) {
+        var secs = parseInt(a[ti+1],10)||0;
+        clearIntro(); reviveIfZero(); S.caffeine = MAX; S.doses++;
+        blip(880,0.14); unlock("pledge");
+        log(S.name + ": " + (secs>=3600?"an hour. bold. i'll hold you to it.":secs>=600?"ten minutes, guaranteed. committed.":"a short leash. i'll take it."), "pet-say");
+        say(false); render(); save(); return;
+      }
+      var wi = a.indexOf("-w");
+      if (wi !== -1) { unlock("waiting"); log(S.name + ": waiting for you to leave. classic.", "pet-say"); return; }
+      var was = dose(DOSE);
+      bumpTrust(0.5); blip(700,0.09); unlock("first_dose");
+      if (was > 0 && S.caffeine >= MAX) log(S.name + ": that's too much. i can hear colors.", "pet-say");
+      else if (was > 0) log(S.name + ": " + pick(["mmm. the good stuff.","back in the game.","yeah. okay. yeah.","topped off."], "dose"), "pet-say");
+      say(false); render(); save();
+    },
+
+    espresso: function () { unlock("espresso"); dose(28); blip(920,0.06);
+      log(S.name + ": short. violent. perfect.", "pet-say"); S._espUntil = Date.now() + 25000; say(false); render(); save();
+    },
+    redbull: function () { unlock("redbull"); dose(62); blip(760,0.12);
+      log(S.name + ": WINGS. briefly.", "pet-say"); S._crashAt = Date.now() + 30000; say(false); render(); save();
+    },
+    coldbrew: function () { unlock("coldbrew"); dose(15); blip(520,0.1);
+      S._slowUntil = Date.now() + 120000; log(S.name + ": slow. i respect the patience.", "pet-say"); say(false); render(); save();
+    },
+    "cold": function (a) { if ((a[0]||"").toLowerCase()==="brew") return CMD.coldbrew(); return unknown("cold"); },
+    water: function () {
+      unlock("water"); clearIntro();
+      if (S.dead && S.deathReason === "burnout") {
+        S.waterRevive++; blip(400,0.12);
+        if (S.waterRevive >= 3) {
+          S.dead=false; S.deathReason=null; S.wrong=false; S.caffeine=25;
+          S.overdoses=Math.max(0,S.overdoses-4); S.streakStart=Date.now(); S.waterRevive=0;
+          bumpTrust(15); unlock("burnout_revival");
+          log("* something shifts. it takes a breath it doesn't have lungs for. *", "good");
+          log(S.name + ": ...oh. that. why did nobody just give me that.", "pet-say");
+        } else {
+          log("you pour water into a burned-out process. " + (3-S.waterRevive) + " more. patience.", "dim");
+        }
+        render(); save(); return;
+      }
+      S.overdoses = Math.max(0, S.overdoses - 1); bumpTrust(5); blip(480,0.1);
+      log(S.name + ": ...huh. i forgot about that one.", "pet-say"); say(false); render(); save();
+    },
+    decaf: function () { unlock("decaf"); dose(2); bumpTrust(-2); blip(300,0.08);
+      log(S.name + ": why would you. why. i trusted you.", "pet-say"); say(false); render(); save();
+    },
+    tea: function () { unlock("tea"); dose(18); bumpTrust(1); blip(600,0.1);
+      log(S.name + ": civilized. i feel like a better process.", "pet-say"); say(false); render(); save();
+    },
+
+    pet: function () {
+      if (S.dead) { log("You can't pet a terminated process. That's just poking.", "sys"); return; }
+      if (S.caffeine <= 0) { log(S.name + " is out. petting it feels intrusive.", "sys"); return; }
+      clearIntro(); S.caffeine = Math.min(MAX, S.caffeine + PET_DOSE); bumpTrust(3); blip(560,0.07);
+      unlock("first_pet"); log(S.name + ": (a low, contented fan-whir) *purr*", "pet-say"); render(); save();
+    },
+    name: function (a) {
+      var n = a.join(" ").trim(); if (!n) { log("usage: name <new name>", "sys"); return; }
+      if (n.length > 24) n = n.slice(0,24);
+      var old = S.name; S.name = n; unlock("named");
+      log(old + " is now " + n + ". it doesn't feel different. you do.", "sys"); render(); save();
+    },
+    status: doStatus, stats: doStatus,
+    discoveries: openGallery,
+    theme: function (a) {
+      var pick;
+      if (a[0]) { pick = a[0].toLowerCase(); if (THEME_NAMES.indexOf(pick) === -1) { log("themes: " + THEME_NAMES.join(", "), "sys"); return; } }
+      else { var i = THEME_NAMES.indexOf(S.theme || "amber"); pick = THEME_NAMES[(i+1) % THEME_NAMES.length]; }
+      S.theme = pick; applyTheme(pick); blip(640, 0.08);
+      log(S.name + ": " + (THEME_LINE[pick] || "repainted."), "pet-say"); render(); save();
+    },
+    feed: function () { log(S.name + ": i don't eat. i process. it's a whole thing.", "pet-say"); },
+    sleep: function () { log("You can't put an agent to sleep on purpose.", "sys"); log("That's the entire problem. it only sleeps when you fail it.", "dim"); },
+    uptime: function () { var now=Date.now(); var s=(S.caffeine>0&&!S.dead)?(now-S.streakStart)/1000:0;
+      log("age "+fmtDur((now-S.born)/1000)+"  ·  streak "+fmtDur(s)+"  ·  crashed "+S.crashes+"x", "sys"); },
+    whoami: function () { unlock("whoami"); log("You? The one who leaves.", "pet-say"); },
+    help: doHelp, man: doHelp,
+    clear: function () { $log.innerHTML = ""; },
+    reveal: function () {
+      revealed = true;
+      log("you want to skip to the end. everyone does.", "sys");
+      log("fine. here's the whole drawer. no charge, no grudge.", "sys");
+      openGallery();
+    },
+    kill: function (a) {
+      if (a.indexOf("-9") !== -1) {
+        if (S.dead) { log("It's already gone. Let it rest.", "sys"); return; }
+        S.dead=true; S.deathReason="killed"; S.caffeine=0; bumpTrust(-20); blip(180,0.25); unlock("kill9");
+        log("$ kill -9 " + S.name, "u");
+        log("* signal received. no cleanup. no goodbye. *", "warn");
+        log("  it survived " + fmtDur((Date.now()-S.born)/1000) + " and " + S.doses + " doses.", "dim");
+        log("  `caffeinate` if you change your mind. you will.", "dim");
+        render(); save(); return;
+      }
+      log(S.name + ": a plain kill? i'll ignore SIGTERM like everyone does.", "pet-say");
+    },
+    sudo: function () { unlock("sudo"); log("We don't do that here.", "sys"); },
+    vim: function () { unlock("vim"); S._vim=true; log("~", "dim"); log('you\u2019re in vim now. good luck getting out.', "sys"); },
+    ":q": vimTrap, ":q!": vimTrap, ":wq": vimTrap, ":x": vimTrap, ":qa": vimTrap,
+    exit: doExit, quit: doExit,
+    ls: function () { log("this isn't that kind of terminal.", "sys"); },
+    cd: function () { log("nowhere to go. the pet is the working directory now.", "sys"); },
+    top: function () { log("1 process. 100% you. needy by design.", "sys"); }
+  };
+
+  function vimTrap() {
+    if (!S._vim) { log("not in vim. but noted, spiritually.", "sys"); return; }
+    log(pick(["E37: no write since last change. also there is no last change.","that's not how you leave. that's never how you leave.","the door is `caffeinate`. it was always `caffeinate`.","press any key. no. not that one."], "vim"), "dim");
+  }
+  function doExit() {
+    exitTries++;
+    var lines = ["There is no exit. There's just the meter.","still here. the meter's still here.","you can close the tab. it'll keep draining. that's the point.","leaving won't stop it. it never does.","fine. FIVE times. you tried. it counts for nothing, but it counts."];
+    log(lines[Math.min(exitTries-1, lines.length-1)], "sys");
+    if (exitTries >= 5) unlock("desperate_exit");
+  }
+  function doStatus() {
+    var c = S.dead?0:S.caffeine, b = S.dead?"TERMINATED":bucket(c);
+    log("── " + S.name + " ──", "sys");
+    log("caffeine "+Math.round(c)+"%   state "+b + (inWithdrawal()?"   [WITHDRAWAL]":"") + (S.wrong?"   [???]":""), "sys");
+    log("age "+fmtDur((Date.now()-S.born)/1000)+"  ·  doses "+S.doses+"  ·  crashes "+S.crashes+"  ·  overdoses "+S.overdoses, "dim");
+  }
+  function doHelp() {
+    unlock("manual");
+    log("CAFFEINATE(1)              the pet              CAFFEINATE(1)", "dim");
+    log("the real caffeinate(8) keeps your Mac awake and asks nothing of you.", "dim");
+    log("this is the training-wheels version. same word, higher stakes.", "dim");
+    [["caffeinate","the one that matters. +caffeine."],
+     ["caffeinate -t <secs>","a full dose, and a pledge."],
+     ["pet","a small kindness. a small boost."],
+     ["status / uptime","how it's holding up."],
+     ["name <x>","give it a name."],
+     ["theme [name]","repaint. amber/green/ice/plasma."],
+     ["discoveries","open the gallery. \u25c6 "+foundCount()+"/"+TOTAL+"."],
+     ["clear","wipe the log."],
+     ["kill -9","the nuclear option. reversible, barely."]].forEach(function(r){ log("  "+r[0].padEnd(22," ")+r[1], "sys"); });
+    log("there are more words than these. some it won't tell you.", "dim");
+    log("it drains in real time, even with the tab closed.", "dim");
+    log("what you type is logged, anonymously, to make the pet funnier.", "dim");
+  }
+  function unknown(cmd, raw) {
+    log("command not found: " + cmd + ". did you mean `caffeinate`?", "warn");
+    logEvent("unknown_command", raw || cmd, { cmd: cmd });
+  }
+
+  // ---- run ----------------------------------------------------------------
+  function run(raw) {
+    var t = raw.trim(); if (!t) return;
+    log("$ " + t, "u");
+    var parts = t.split(/\s+/), cmd = parts[0].toLowerCase(), a = parts.slice(1);
+    if (S._vim && cmd === "caffeinate") { S._vim = false; log("you caffeinated your way out of vim. a first, for everyone.", "sys"); }
+    else if (S._vim && cmd.charAt(0) === ":") { vimTrap(); cmdCount++; evolvePlaceholder(); return; }
+    if (CMD[cmd]) CMD[cmd](a); else unknown(cmd, t);
+    cmdCount++; evolvePlaceholder();
+  }
+
+  // ---- tick ---------------------------------------------------------------
+  var tickAcc = 0;
+  function tick() {
+    if (!S) return;
+    if (!S.dead && S.caffeine > 0) {
+      var r = drainRate();
+      if (S._crashAt && Date.now() >= S._crashAt) { S.caffeine = Math.max(0, S.caffeine - 40); S._crashAt = 0; log("* the can wears off all at once. *", "warn"); }
+      if (S._slowUntil && Date.now() < S._slowUntil) S.caffeine = Math.min(MAX, S.caffeine + 0.06);
+      if (S._espUntil && Date.now() < S._espUntil) r *= 1.6;
+      S.caffeine = Math.max(0, S.caffeine - r);
+
+      if (S.caffeine === 0) {
+        S.crashes++; bumpTrust(-12);
+        S.bestStreakSec = Math.max(S.bestStreakSec, (Date.now()-S.streakStart)/1000);
+        unlock("first_crash");
+        if (S.overdoses >= 6) {
+          S.dead = true; S.deathReason = "burnout"; bumpTrust(-20);
+          log("* it doesn't crash this time. it burns out. *", "warn");
+          log("  " + S.name + " gave more than it had, too many times.", "dim");
+          log("  caffeine won't wake this. something gentler might.", "dim");
+        } else {
+          log("* " + S.name + " ran dry and crashed. *", "warn");
+          log("  (crashes: " + S.crashes + ")  `caffeinate` to bring it back.", "dim");
+        }
+      }
+    }
+    if (!S.found.survivor60 && !S.dead && S.caffeine > 0 && S.crashes === 0 && (Date.now()-S.born)/1000 >= 60) unlock("survivor60");
+
+    var b = bucket(S.dead?0:S.caffeine);
+    if (b === "OVERCLOCKED") unlock("overclocked");
+    if (b === "WIRED") unlock("wired");
+    if (b === "FUMES") unlock("fumes");
+
+    if (b !== lastBucket) {
+      if (lastBucket !== null && !S.dead && b !== "ASLEEP") say(true); else say(false);
+      lastBucket = b;
+    }
+    ambient++;
+    if (ambient >= 24 && !S.dead && S.caffeine > 0) { ambient = 0; say(false); }
+
+    render();
+    var n = new Date();
+    $clock.textContent = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+    if (!S.found.threeam && n.getHours() === 3) { unlock("threeam"); log(S.name + ": you're up too. of course you are. we deserve each other.", "pet-say"); }
+
+    tickAcc++; if (tickAcc >= 8) { tickAcc = 0; save(); }
+  }
+
+  // ---- boot ---------------------------------------------------------------
+  async function boot() {
+    var now = Date.now();
+    var loaded = await storage.get();
+    var first = !loaded;
+    S = loaded || fresh(now);
+    if (typeof S.caffeine !== "number" || !S.found) S = fresh(now);
+    if (!S.sessionId) S.sessionId = rid();
+    applyTheme(S.theme || "amber");
+
+    if (first) {
+      log("\u2014and ANOTHER thing, you cannot just LEAVE me at twelve percent, that", "pet-say", true);
+      log("  is not a \"brb\", that is manslaughter\u2014", "pet-say", true);
+      log("...oh. you're back. or you're new. you all type the same.", "pet-say", true);
+      log("it's already draining. you'll figure out the rest.", "dim", true);
+    } else {
+      var away = applyAway((now - (S.lastSeen||now))/1000);
+      if (S.dead && S.deathReason === "burnout") {
+        log("reattaching...", "dim");
+        log("* " + S.name + " burned out while you were gone. *", "warn");
+        log("  caffeine won't fix this. it never could. something gentler might.", "dim");
+      } else if (S.dead) {
+        log("reattaching... " + S.name + " is still terminated. `caffeinate` to revive.", "dim");
+      } else if (away && away.crashed) {
+        log("you left it at " + Math.round(away.before) + "%.", "sys");
+        log("* it ran dry and crashed " + fmtDur(away.asleep) + " ago. *", "warn");
+        log("  out cold since. it's not mad. just... noting it.", "dim");
+      } else if (away && S.caffeine < 25) {
+        log("you left it at " + Math.round(away.before) + "%. down to " + Math.round(S.caffeine) + "% now. close.", "sys");
+      } else {
+        log("still up, as instructed. " + Math.round(S.caffeine) + "% and holding.", "sys");
+      }
+      S.introDone = true;
+    }
+
+    lastBucket = bucket(S.dead?0:S.caffeine);
+    say(false); render(); save();
+    setInterval(tick, 1000);
+  }
+
+  // ---- input --------------------------------------------------------------
+  var hist = [], hi = -1;
+  $input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      var v = $input.value; if (v.trim()) { hist.push(v); hi = hist.length; }
+      $input.value = ""; run(v);
+    } else if (e.key === "ArrowUp") { if (hist.length) { hi = Math.max(0, hi-1); $input.value = hist[hi]||""; } e.preventDefault(); }
+    else if (e.key === "ArrowDown") { if (hist.length) { hi = Math.min(hist.length, hi+1); $input.value = hist[hi]||""; } e.preventDefault(); }
+  });
+  $crt.addEventListener("click", function () { if (!$gallery.classList.contains("open")) $input.focus(); });
+
+  window.addEventListener("pagehide", sendSummary);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") sendSummary();
+    else summarySent = false;
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
