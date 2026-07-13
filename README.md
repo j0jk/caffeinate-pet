@@ -4,6 +4,8 @@ A terminal Tamagotchi that runs on real wall-clock time. It drains whether or no
 
 One self-contained HTML file. No build step, no dependencies.
 
+Access it here: https://j0jk.github.io/caffeinate-pet/
+
 ## Play
 
 Type commands into the prompt. The one that matters is `caffeinate`. You find the rest by poking.
